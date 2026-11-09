@@ -5,6 +5,8 @@ import 'package:conduit_core/features/hermes/providers/hermes_providers.dart';
 import 'package:conduit_core/features/hermes/services/hermes_backend_service.dart';
 import 'package:conduit_core/features/hermes/services/hermes_session_provenance.dart'
     show isNativeHermesConversation;
+import 'package:conduit_core/features/chat/providers/chat_providers.dart';
+import 'package:conduit_core/models/chat_message.dart';
 import 'package:conduit_core/models/conversation.dart';
 import 'package:conduit_core/providers/app_providers.dart';
 import 'package:conduit_core/utils/debug_logger.dart';
@@ -33,6 +35,19 @@ String? watchHermesReadOnlySessionSource(
   return ref.watch(
     hermesReadOnlySessionsProvider.select((sessions) => sessions[sessionId]),
   );
+}
+
+/// The text of the last message in [messages] if Hermes answered it with an
+/// error (a refused send), else null.
+@visibleForTesting
+String? hermesRefusedMessageText(List<ChatMessage> messages) {
+  if (messages.length < 2) return null;
+  final reply = messages.last;
+  final sent = messages[messages.length - 2];
+  if (reply.role != 'assistant' || reply.error == null) return null;
+  if (sent.role != 'user') return null;
+  final text = sent.content.trim();
+  return text.isEmpty ? null : text;
 }
 
 /// The product name of the Hermes app a session [source] names ("cli" →
@@ -112,9 +127,17 @@ class _HermesReadOnlySessionNoticeState
       return;
     }
     _navigationEpoch = ref.read(hermesSessionNavigationEpochProvider);
+    // The composer let go of a message Hermes then refused (it owns no turn
+    // here), and neither copy includes it: hand it to the new chat's composer.
+    final refused = hermesRefusedMessageText(ref.read(chatMessagesProvider));
     setState(() => _busy = true);
     try {
       await action(service, conversation, sessionId);
+      if (refused != null &&
+          mounted &&
+          ref.read(activeConversationProvider)?.id != conversation.id) {
+        ref.read(prefilledInputTextProvider.notifier).set(refused);
+      }
     } catch (error) {
       DebugLogger.error(
         'continue-read-only-session-failed',
@@ -153,9 +176,9 @@ class _HermesReadOnlySessionNoticeState
       }
       HermesSessionSummary? fork;
       try {
-        fork = (await ref.read(
-          hermesSessionsProvider.future,
-        )).where((session) => session.id == forkId).firstOrNull;
+        fork = (await ref.read(hermesSessionsProvider.future))
+            .where((session) => session.id == forkId)
+            .firstOrNull;
       } catch (_) {
         // The fork exists; open it under the original's title.
       }
