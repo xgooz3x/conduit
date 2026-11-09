@@ -118,6 +118,14 @@ jobs:
           flutter build apk --debug --target-platform android-arm64
           cd android
           ./gradlew :app:testDebugUnitTest -Ptarget-platform=android-arm64
+      # The debug APK this job built, to install on a phone for testing.
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: conduit-debug-arm64
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
 
   # Each workspace member analyzes and tests from its own directory, which
   # is what proves the pub workspace actually works per package. They share
