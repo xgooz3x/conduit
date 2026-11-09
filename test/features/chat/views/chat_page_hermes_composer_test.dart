@@ -194,6 +194,8 @@ class _OpenRunHermesApi extends HermesApiService {
     String runId, {
     String? sessionId,
     CancelToken? cancelToken,
+    int? lastEventId,
+    void Function(int seq)? onSequence,
   }) => events.stream;
 
   @override
