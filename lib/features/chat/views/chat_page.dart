@@ -1428,6 +1428,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               handle,
               settleImmediately: settlePinImmediately,
             );
+            // A Hermes send returns only when the whole reply ends. Once its
+            // message is in the chat, a failure shows there with Retry, so
+            // the composer can let the draft go now.
+            if (isHermesModel(selectedModel) && onDraftCommitted != null) {
+              admissionConfirmed = true;
+              onDraftCommitted(handle);
+            }
           },
           onAdmissionCommitted: usesOutbox && onDraftCommitted != null
               ? (_) {
