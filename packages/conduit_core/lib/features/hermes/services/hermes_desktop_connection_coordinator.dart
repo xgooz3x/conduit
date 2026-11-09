@@ -22,7 +22,10 @@ HermesDesktopAuthKind hermesRecommendedDesktopAuth(
   // A deployment gated only by its provisioned session token (Hermes 0.22.6+
   // `session-token` provider) offers no interactive sign-in: its login page
   // is just a note, so the token itself is the credential.
-  if (!native && hermesDesktopAcceptsSessionToken(status)) {
+  final providers = status['auth_providers'];
+  if (!native &&
+      hermesDesktopAcceptsSessionToken(status) &&
+      (providers as List).every((provider) => provider == 'session-token')) {
     return HermesDesktopAuthKind.legacyToken;
   }
   return native && !hasAccessHeaders

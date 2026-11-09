@@ -54,6 +54,14 @@ void main() {
         'auth_flows': ['cookie', 'native_pkce'],
       }, hasAccessHeaders: false),
     ).equals(HermesDesktopAuthKind.nativePkce);
+    // Basic sign-in beside the token, without native PKCE: dashboard sign-in.
+    check(
+      hermesRecommendedDesktopAuth(const {
+        'auth_required': true,
+        'auth_providers': ['basic', 'session-token'],
+        'auth_flows': ['cookie'],
+      }, hasAccessHeaders: false),
+    ).equals(HermesDesktopAuthKind.dashboardCookie);
   });
 
   test('native token rotation preserves transport-bearing credentials', () {
