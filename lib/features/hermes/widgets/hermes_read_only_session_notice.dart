@@ -112,7 +112,7 @@ class _HermesReadOnlySessionNoticeState
   /// with [failureMessage].
   Future<void> _continue(
     String failureMessage,
-    Future<void> Function(
+    Future<bool> Function(
       HermesBackendService service,
       Conversation conversation,
       String sessionId,
@@ -132,10 +132,8 @@ class _HermesReadOnlySessionNoticeState
     final refused = hermesRefusedMessageText(ref.read(chatMessagesProvider));
     setState(() => _busy = true);
     try {
-      await action(service, conversation, sessionId);
-      if (refused != null &&
-          mounted &&
-          ref.read(activeConversationProvider)?.id != conversation.id) {
+      final opened = await action(service, conversation, sessionId);
+      if (refused != null && opened && mounted) {
         ref.read(prefilledInputTextProvider.notifier).set(refused);
       }
     } catch (error) {
@@ -172,7 +170,7 @@ class _HermesReadOnlySessionNoticeState
       final sessions = ref.read(hermesSessionsProvider.notifier);
       final forkId = await sessions.fork(sessionId);
       if (forkId == null || !mounted || !_sameChat(service, conversation)) {
-        return;
+        return false;
       }
       HermesSessionSummary? fork;
       try {
@@ -182,7 +180,7 @@ class _HermesReadOnlySessionNoticeState
       } catch (_) {
         // The fork exists; open it under the original's title.
       }
-      if (!mounted || !_sameChat(service, conversation)) return;
+      if (!mounted || !_sameChat(service, conversation)) return false;
       await openHermesSession(
         context,
         ref,
@@ -193,6 +191,7 @@ class _HermesReadOnlySessionNoticeState
               source: kHermesApiOwnedSessionSources.first,
             ),
       );
+      return true;
     },
   );
 
@@ -205,13 +204,13 @@ class _HermesReadOnlySessionNoticeState
     AppLocalizations.of(context)!.hermesContinueInCopyFailed,
     (service, conversation, sessionId) async {
       final transcript = await service.getSessionMessages(sessionId);
-      if (!mounted || !_sameChat(service, conversation)) return;
+      if (!mounted || !_sameChat(service, conversation)) return false;
       final copyId = await service.createSession();
       if (!mounted || !_sameChat(service, conversation)) {
         // Nothing will open the copy or save its earlier messages, so don't
         // leave an empty session in the list.
         unawaited(service.deleteSession(copyId).catchError((Object _) {}));
-        return;
+        return false;
       }
       ref.invalidate(hermesSessionsProvider);
       await openHermesSession(
@@ -224,6 +223,7 @@ class _HermesReadOnlySessionNoticeState
         ),
         transcript: transcript,
       );
+      return true;
     },
   );
 
